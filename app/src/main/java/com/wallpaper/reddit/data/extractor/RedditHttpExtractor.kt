@@ -32,6 +32,16 @@ class RedditHttpExtractor(
                 .followRedirects(true)
                 .build()
         }
+
+        private fun logDebug(tag: String, msg: String) {
+            try { Log.d(tag, msg) } catch (_: Throwable) { println("[$tag] $msg") }
+        }
+        private fun logWarn(tag: String, msg: String) {
+            try { Log.w(tag, msg) } catch (_: Throwable) { System.err.println("[$tag WARN] $msg") }
+        }
+        private fun logError(tag: String, msg: String, tr: Throwable? = null) {
+            try { Log.e(tag, msg, tr) } catch (_: Throwable) { System.err.println("[$tag ERROR] $msg ${tr?.message ?: ""}") }
+        }
     }
 
     override suspend fun getPosts(
@@ -43,7 +53,7 @@ class RedditHttpExtractor(
         val cleanSubreddit = subreddit.trim().removePrefix("r/").removePrefix("/")
         val url = buildUrl(cleanSubreddit, sort, limit, after)
 
-        Log.d(TAG, "[Reddit] GET $url")
+        logDebug(TAG, "[Reddit] GET $url")
 
         val request = Request.Builder()
             .url(url)
@@ -54,11 +64,11 @@ class RedditHttpExtractor(
         try {
             client.newCall(request).execute().use { response ->
                 val code = response.code
-                Log.d(TAG, "[Reddit] HTTP $code from $url")
+                logDebug(TAG, "[Reddit] HTTP $code from $url")
 
                 if (code == 429) {
                     val retryAfter = response.header("Retry-After")?.toIntOrNull()
-                    Log.w(TAG, "[Reddit] Rate limited (429). Retry-After: $retryAfter")
+                    logWarn(TAG, "[Reddit] Rate limited (429). Retry-After: $retryAfter")
                     return@withContext ExtractionResult.RateLimited(
                         retryAfterSeconds = retryAfter,
                         message = "Reddit rate limit reached (HTTP 429). Please wait before refreshing."
@@ -66,7 +76,7 @@ class RedditHttpExtractor(
                 }
 
                 if (code == 403) {
-                    Log.w(TAG, "[Reddit] Access blocked (403).")
+                    logWarn(TAG, "[Reddit] Access blocked (403).")
                     return@withContext tryRssFallback(cleanSubreddit)
                 }
 
@@ -78,10 +88,10 @@ class RedditHttpExtractor(
                 parseRedditJson(bodyString, cleanSubreddit)
             }
         } catch (e: IOException) {
-            Log.e(TAG, "[Reddit] Network failure: ${e.message}", e)
+            logError(TAG, "[Reddit] Network failure: ${e.message}", e)
             ExtractionResult.Error("Network error: ${e.localizedMessage ?: e.message}", e)
         } catch (e: Exception) {
-            Log.e(TAG, "[Reddit] Parsing failure: ${e.message}", e)
+            logError(TAG, "[Reddit] Parsing failure: ${e.message}", e)
             ExtractionResult.Error("Failed to parse Reddit response: ${e.localizedMessage ?: e.message}", e)
         }
     }
@@ -125,7 +135,7 @@ class RedditHttpExtractor(
                 }
             }
 
-            Log.d(TAG, "[Reddit] Parsed ${children.size} posts, extracted ${posts.size} valid wallpaper items")
+            logDebug(TAG, "[Reddit] Parsed ${children.size} posts, extracted ${posts.size} valid wallpaper items")
             ExtractionResult.Success(posts = posts, after = after)
         } catch (e: Exception) {
             ExtractionResult.Error("JSON parsing exception: ${e.message}", e)
@@ -228,7 +238,7 @@ class RedditHttpExtractor(
 
     private fun tryRssFallback(subreddit: String): ExtractionResult {
         val rssUrl = "https://www.reddit.com/r/$subreddit/.rss"
-        Log.d(TAG, "[Reddit] Attempting RSS fallback: $rssUrl")
+        logDebug(TAG, "[Reddit] Attempting RSS fallback: $rssUrl")
         val request = Request.Builder()
             .url(rssUrl)
             .header("User-Agent", userAgent)
