@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Reddit Wallpapers</string>
+    <string name="add_subreddit">Add Subreddit</string>
+    <string name="refresh">Refresh</string>
+    <string name="set_wallpaper">Set Wallpaper</string>
+    <string name="set_home">Home Screen</string>
+    <string name="set_lock">Lock Screen</string>
+    <string name="set_both">Both Screens</string>
+    <string name="download">Download</string>
+    <string name="favourite">Favorite</string>
+    <string name="settings">Settings</string>
+    <string name="rotation">Auto-Rotation</string>
+    <string name="rotation_interval">Rotation Interval</string>
+    <string name="orientation">Orientation Filter</string>
+    <string name="nsfw_filter">Allow NSFW</string>
+    <string name="min_resolution">Minimum Resolution</string>
+</resources>
