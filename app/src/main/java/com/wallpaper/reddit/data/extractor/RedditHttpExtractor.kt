@@ -164,8 +164,8 @@ class RedditHttpExtractor(
                         ?: s?.get("gif")?.jsonPrimitive?.contentOrNull
                     if (rawUrl != null) {
                         val unescapedUrl = unescapeUrl(rawUrl)
-                        val w = s["x"]?.jsonPrimitive?.intOrNull
-                        val h = s["y"]?.jsonPrimitive?.intOrNull
+                        val w = s?.get("x")?.jsonPrimitive?.intOrNull
+                        val h = s?.get("y")?.jsonPrimitive?.intOrNull
                         galleryImages.add(GalleryImage(id = key, url = unescapedUrl, width = w, height = h))
                     }
                 }
@@ -195,8 +195,8 @@ class RedditHttpExtractor(
                     if (mediaUrl == null) {
                         mediaUrl = previewUrl
                     }
-                    if (width == null) width = source["width"]?.jsonPrimitive?.intOrNull
-                    if (height == null) height = source["height"]?.jsonPrimitive?.intOrNull
+                    if (width == null) width = source?.get("width")?.jsonPrimitive?.intOrNull
+                    if (height == null) height = source?.get("height")?.jsonPrimitive?.intOrNull
                 }
             }
         }
