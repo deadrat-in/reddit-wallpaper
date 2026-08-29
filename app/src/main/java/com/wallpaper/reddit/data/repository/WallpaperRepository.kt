@@ -9,6 +9,7 @@ import com.wallpaper.reddit.data.db.entities.WallpaperEntity
 import com.wallpaper.reddit.data.extractor.ExtractionResult
 import com.wallpaper.reddit.data.extractor.MediaResolver
 import com.wallpaper.reddit.data.extractor.RedditHttpExtractor
+import com.wallpaper.reddit.data.extractor.RedditSessionManager
 import com.wallpaper.reddit.data.extractor.RedditSource
 import com.wallpaper.reddit.data.model.OrientationFilter
 import com.wallpaper.reddit.data.model.RedditPost
