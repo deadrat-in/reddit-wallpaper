@@ -26,9 +26,10 @@ import java.io.IOException
 class WallpaperRepository(
     private val context: Context,
     private val database: AppDatabase = AppDatabase.getInstance(context),
-    private val redditSource: RedditSource = RedditHttpExtractor(),
+    val sessionManager: RedditSessionManager = RedditSessionManager.getInstance(context),
+    private val redditSource: RedditSource = RedditHttpExtractor(sessionManager),
     private val mediaResolver: MediaResolver = MediaResolver(),
-    private val httpClient: OkHttpClient = RedditHttpExtractor.defaultClient()
+    private val httpClient: OkHttpClient = RedditHttpExtractor.defaultClient(sessionManager)
 ) {
 
     companion object {

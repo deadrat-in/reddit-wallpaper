@@ -1,21 +1,29 @@
 package com.wallpaper.reddit.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.wallpaper.reddit.data.model.OrientationFilter
 import com.wallpaper.reddit.data.model.RedditPost
 import com.wallpaper.reddit.data.model.RedditSort
 import com.wallpaper.reddit.ui.components.*
+import com.wallpaper.reddit.ui.theme.AccentTeal
+import com.wallpaper.reddit.ui.theme.RedditOrange
 import com.wallpaper.reddit.ui.viewmodel.HomeUiState
 import com.wallpaper.reddit.ui.viewmodel.HomeViewModel
 
@@ -32,6 +40,7 @@ fun HomeScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showFilterMenu by remember { mutableStateOf(false) }
+    var showAuthSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -42,16 +51,35 @@ fun HomeScreen(
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 ),
                 actions = {
+                    // Reddit Browser Auth Button (with active status indicator)
+                    IconButton(onClick = { showAuthSheet = true }) {
+                        Box(contentAlignment = Alignment.TopEnd) {
+                            Icon(
+                                imageVector = Icons.Default.Language,
+                                contentDescription = "Reddit Session",
+                                tint = if (uiState.hasActiveSession) AccentTeal else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (uiState.hasActiveSession) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(AccentTeal)
+                                )
+                            }
+                        }
+                    }
+
                     // Sort dropdown
                     Box {
                         IconButton(onClick = { showSortMenu = true }) {
-                            Icon(Icons.Default.Sort, contentDescription = "Sort")
+                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
                         }
                         DropdownMenu(
                             expanded = showSortMenu,
                             onDismissRequest = { showSortMenu = false }
                         ) {
-                            RedditSort.values().forEach { sort ->
+                            RedditSort.entries.forEach { sort ->
                                 DropdownMenuItem(
                                     text = { Text(sort.displayName) },
                                     onClick = {
@@ -75,7 +103,7 @@ fun HomeScreen(
                             expanded = showFilterMenu,
                             onDismissRequest = { showFilterMenu = false }
                         ) {
-                            OrientationFilter.values().forEach { filter ->
+                            OrientationFilter.entries.forEach { filter ->
                                 DropdownMenuItem(
                                     text = { Text(filter.displayName) },
                                     onClick = {
@@ -125,11 +153,34 @@ fun HomeScreen(
 
             // Rate limit / Error / Offline Banners
             if (uiState.rateLimitMessage != null) {
-                ErrorBanner(
-                    message = uiState.rateLimitMessage!!,
-                    isRateLimit = true,
-                    onRetry = { viewModel.refreshPosts() }
-                )
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = RedditOrange.copy(alpha = 0.15f)),
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = RedditOrange)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Reddit Rate Limit", style = MaterialTheme.typography.titleMedium.copy(color = RedditOrange))
+                            Text("Tap 'Connect Browser' to authenticate with Firefox desktop session.", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Button(
+                            onClick = { showAuthSheet = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = RedditOrange)
+                        ) {
+                            Text("Connect")
+                        }
+                    }
+                }
             } else if (uiState.errorMessage != null) {
                 ErrorBanner(
                     message = uiState.errorMessage!!,
@@ -172,9 +223,14 @@ fun HomeScreen(
                             text = "No wallpapers found in r/${uiState.selectedSubreddit}",
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { viewModel.refreshPosts() }) {
-                            Text("Refresh Feed")
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { viewModel.refreshPosts() }) {
+                                Text("Refresh Feed")
+                            }
+                            OutlinedButton(onClick = { showAuthSheet = true }) {
+                                Text("Connect Reddit Browser")
+                            }
                         }
                     }
                 }
@@ -224,6 +280,16 @@ fun HomeScreen(
             onConfirm = { subName ->
                 viewModel.addSubreddit(subName)
                 showAddDialog = false
+            }
+        )
+    }
+
+    if (showAuthSheet) {
+        RedditBrowserAuthSheet(
+            sessionManager = viewModel.repository.sessionManager,
+            onDismiss = { showAuthSheet = false },
+            onAuthenticated = {
+                viewModel.refreshPosts()
             }
         )
     }

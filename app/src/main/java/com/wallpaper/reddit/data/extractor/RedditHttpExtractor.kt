@@ -13,8 +13,9 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 class RedditHttpExtractor(
-    private val client: OkHttpClient = defaultClient(),
-    private val userAgent: String = "android:com.wallpaper.reddit:v1.0.0 (by /u/reddit_wallpaper_app)"
+    private val sessionManager: RedditSessionManager? = null,
+    private val client: OkHttpClient = defaultClient(sessionManager),
+    private val userAgent: String = RedditSessionManager.FIREFOX_DESKTOP_UA
 ) : RedditSource {
 
     companion object {
@@ -24,13 +25,18 @@ class RedditHttpExtractor(
             isLenient = true
         }
 
-        fun defaultClient(): OkHttpClient {
-            return OkHttpClient.Builder()
+        fun defaultClient(sessionManager: RedditSessionManager? = null): OkHttpClient {
+            val builder = OkHttpClient.Builder()
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(20, TimeUnit.SECONDS)
                 .writeTimeout(15, TimeUnit.SECONDS)
                 .followRedirects(true)
-                .build()
+
+            if (sessionManager != null) {
+                builder.addInterceptor(sessionManager.createBrowserInterceptor())
+            }
+
+            return builder.build()
         }
 
         private fun logDebug(tag: String, msg: String) {
@@ -53,13 +59,22 @@ class RedditHttpExtractor(
         val cleanSubreddit = subreddit.trim().removePrefix("r/").removePrefix("/")
         val url = buildUrl(cleanSubreddit, sort, limit, after)
 
-        logDebug(TAG, "[Reddit] GET $url")
+        logDebug(TAG, "[Reddit Firefox Session] GET $url")
 
-        val request = Request.Builder()
+        val reqBuilder = Request.Builder()
             .url(url)
             .header("User-Agent", userAgent)
             .header("Accept", "application/json, text/html, */*")
-            .build()
+            .header("Accept-Language", "en-US,en;q=0.5")
+            .header("DNT", "1")
+            .header("Referer", "https://www.reddit.com/r/$cleanSubreddit/")
+
+        val cookies = sessionManager?.getCookies()
+        if (!cookies.isNullOrBlank()) {
+            reqBuilder.header("Cookie", cookies)
+        }
+
+        val request = reqBuilder.build()
 
         try {
             client.newCall(request).execute().use { response ->
@@ -71,7 +86,7 @@ class RedditHttpExtractor(
                     logWarn(TAG, "[Reddit] Rate limited (429). Retry-After: $retryAfter")
                     return@withContext ExtractionResult.RateLimited(
                         retryAfterSeconds = retryAfter,
-                        message = "Reddit rate limit reached (HTTP 429). Please wait before refreshing."
+                        message = "Reddit rate limit reached (HTTP 429). Tap 'Connect Reddit' to authenticate via browser session."
                     )
                 }
 
@@ -239,13 +254,18 @@ class RedditHttpExtractor(
     private fun tryRssFallback(subreddit: String): ExtractionResult {
         val rssUrl = "https://www.reddit.com/r/$subreddit/.rss"
         logDebug(TAG, "[Reddit] Attempting RSS fallback: $rssUrl")
-        val request = Request.Builder()
+        val reqBuilder = Request.Builder()
             .url(rssUrl)
             .header("User-Agent", userAgent)
-            .build()
+            .header("Accept", "application/atom+xml, application/rss+xml, */*")
+
+        val cookies = sessionManager?.getCookies()
+        if (!cookies.isNullOrBlank()) {
+            reqBuilder.header("Cookie", cookies)
+        }
 
         return try {
-            client.newCall(request).execute().use { response ->
+            client.newCall(reqBuilder.build()).execute().use { response ->
                 if (!response.isSuccessful) {
                     return ExtractionResult.Error("RSS fallback failed with code ${response.code}")
                 }

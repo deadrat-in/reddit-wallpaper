@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.wallpaper.reddit.data.extractor.RedditSessionManager
 import com.wallpaper.reddit.data.model.OrientationFilter
 import com.wallpaper.reddit.data.model.TargetScreen
 import com.wallpaper.reddit.worker.RotationScheduler
@@ -11,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val autoRotationEnabled: Boolean = false,
@@ -18,11 +21,13 @@ data class SettingsUiState(
     val targetScreen: TargetScreen = TargetScreen.BOTH,
     val onlyFavoritesForRotation: Boolean = false,
     val defaultOrientation: OrientationFilter = OrientationFilter.ALL,
-    val allowNsfw: Boolean = false
+    val allowNsfw: Boolean = false,
+    val hasActiveBrowserSession: Boolean = false
 )
 
 class SettingsViewModel(
     private val context: Context,
+    val sessionManager: RedditSessionManager = RedditSessionManager.getInstance(context),
     private val rotationScheduler: RotationScheduler = RotationScheduler(context)
 ) : ViewModel() {
 
@@ -41,6 +46,14 @@ class SettingsViewModel(
     private val _uiState = MutableStateFlow(loadSettings())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            sessionManager.hasActiveSession.collect { active ->
+                _uiState.update { it.copy(hasActiveBrowserSession = active) }
+            }
+        }
+    }
+
     private fun loadSettings(): SettingsUiState {
         val autoRot = prefs.getBoolean(KEY_AUTO_ROTATION, false)
         val interval = prefs.getLong(KEY_ROTATION_INTERVAL, 3L)
@@ -58,7 +71,8 @@ class SettingsViewModel(
             targetScreen = target,
             onlyFavoritesForRotation = onlyFavs,
             defaultOrientation = orientation,
-            allowNsfw = nsfw
+            allowNsfw = nsfw,
+            hasActiveBrowserSession = !sessionManager.getCookies().isNullOrBlank()
         )
     }
 
@@ -94,6 +108,11 @@ class SettingsViewModel(
     fun setAllowNsfw(allow: Boolean) {
         prefs.edit().putBoolean(KEY_ALLOW_NSFW, allow).apply()
         _uiState.update { it.copy(allowNsfw = allow) }
+    }
+
+    fun clearBrowserSession() {
+        sessionManager.clearSession()
+        _uiState.update { it.copy(hasActiveBrowserSession = false) }
     }
 
     private fun syncRotationWorker() {

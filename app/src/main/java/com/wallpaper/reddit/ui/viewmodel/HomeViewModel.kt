@@ -24,11 +24,12 @@ data class HomeUiState(
     val rateLimitMessage: String? = null,
     val errorMessage: String? = null,
     val afterToken: String? = null,
-    val isOfflineFeed: Boolean = false
+    val isOfflineFeed: Boolean = false,
+    val hasActiveSession: Boolean = false
 )
 
 class HomeViewModel(
-    private val repository: WallpaperRepository
+    val repository: WallpaperRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -53,6 +54,13 @@ class HomeViewModel(
         viewModelScope.launch {
             repository.favorites.collect { favs ->
                 _uiState.update { it.copy(favoritePostIds = favs.map { f -> f.id }.toSet()) }
+            }
+        }
+
+        // Collect active session status
+        viewModelScope.launch {
+            repository.sessionManager.hasActiveSession.collect { active ->
+                _uiState.update { it.copy(hasActiveSession = active) }
             }
         }
 

@@ -116,7 +116,7 @@ fun WallpaperViewerScreen(
                             .clip(CircleShape)
                             .background(Color.Black.copy(alpha = 0.5f))
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

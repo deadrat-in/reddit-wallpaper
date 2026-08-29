@@ -4,16 +4,20 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.wallpaper.reddit.data.model.OrientationFilter
 import com.wallpaper.reddit.data.model.TargetScreen
+import com.wallpaper.reddit.ui.components.RedditBrowserAuthSheet
+import com.wallpaper.reddit.ui.theme.AccentTeal
 import com.wallpaper.reddit.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,6 +28,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showAuthSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -31,7 +36,7 @@ fun SettingsScreen(
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -50,9 +55,70 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Section 0: Reddit Browser Authentication
+            Text(
+                text = "REDDIT BROWSER SESSION",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Firefox Desktop Session", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                if (uiState.hasActiveBrowserSession) "Active session cookies saved. Requests bypass bot detection."
+                                else "No cookies saved. Log in via in-app browser to prevent HTTP 429 rate limits.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (uiState.hasActiveBrowserSession) AccentTeal else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (uiState.hasActiveBrowserSession) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = "Active",
+                                tint = AccentTeal,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(
+                            onClick = { showAuthSheet = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(if (uiState.hasActiveBrowserSession) "Re-authenticate" else "Connect Reddit")
+                        }
+
+                        if (uiState.hasActiveBrowserSession) {
+                            OutlinedButton(
+                                onClick = { viewModel.clearBrowserSession() }
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Clear")
+                            }
+                        }
+                    }
+                }
+            }
+
             // Section 1: Auto-Rotation
             Text(
-                text = "AUTOMATIC ROTATION",
+                text = "AUTOMATIC ROTATION (WallYou Engine)",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -70,7 +136,7 @@ fun SettingsScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Enable Auto-Rotation", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Rotates wallpaper periodically in the background using downloaded wallpapers",
+                                "Periodically rotates wallpaper locally with aspect-ratio centering",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
@@ -82,7 +148,7 @@ fun SettingsScreen(
 
                     if (uiState.autoRotationEnabled) {
                         Spacer(modifier = Modifier.height(16.dp))
-                        Divider()
+                        HorizontalDivider()
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // Rotation Interval
@@ -100,7 +166,7 @@ fun SettingsScreen(
                         Text("Apply to:", style = MaterialTheme.typography.bodyMedium)
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TargetScreen.values().forEach { target ->
+                            TargetScreen.entries.forEach { target ->
                                 FilterChip(
                                     selected = uiState.targetScreen == target,
                                     onClick = { viewModel.setTargetScreen(target) },
@@ -142,7 +208,7 @@ fun SettingsScreen(
                     Text("Default Orientation", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OrientationFilter.values().forEach { filter ->
+                        OrientationFilter.entries.forEach { filter ->
                             FilterChip(
                                 selected = uiState.defaultOrientation == filter,
                                 onClick = { viewModel.setDefaultOrientation(filter) },
@@ -152,7 +218,7 @@ fun SettingsScreen(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    Divider()
+                    HorizontalDivider()
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
@@ -172,5 +238,13 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showAuthSheet) {
+        RedditBrowserAuthSheet(
+            sessionManager = viewModel.sessionManager,
+            onDismiss = { showAuthSheet = false },
+            onAuthenticated = {}
+        )
     }
 }
